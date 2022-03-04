@@ -59,12 +59,12 @@ jobs:
       run: |-
         set -x -o pipefail
         ninja -v -C build all
-        objdump -p build/lurch.dll | fgrep 'DLL Name' | sort -u | nl
+        objdump -p build/lurch*.dll | fgrep 'DLL Name' | sort -u | nl
 
     - name: Gather transitive DLL closure
       run: |-
         set -x -o pipefail
-        DLL_HOME=/mingw32/bin/ BUILD_DIR=build/ ./copy_dll_closure.sh build/lurch.dll build/
+        DLL_HOME=/mingw32/bin/ BUILD_DIR=build/ ./copy_dll_closure.sh build/lurch*.dll build/
         ls -lh build/*.dll
 
     - name: Test (KNOWN TO FAIL)

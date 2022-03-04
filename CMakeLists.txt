@@ -120,6 +120,16 @@ else()
 endif()
 add_library(lurch ${_LURCH_LIBRARY_TYPE} ${_LURCH_SOURCES})
 set_target_properties(lurch PROPERTIES PREFIX "")  # for lurch.so not liblurch.so
+if(WIN32)
+    if(BUILD_SHARED_LIBS)
+        set(_LURCH_OUTPUT_NAME lurch_fully_shared)
+    else()
+        set(_LURCH_OUTPUT_NAME lurch_semi_shared)
+    endif()
+    set_target_properties(lurch PROPERTIES OUTPUT_NAME ${_LURCH_OUTPUT_NAME})
+else()
+    set(_LURCH_OUTPUT_NAME lurch)
+endif()
 
 if(LURCH_INSTALL)
     install(TARGETS lurch
@@ -131,7 +141,7 @@ endif()
 
 add_custom_target(install-home
     COMMAND mkdir -p ~/.purple/plugins
-    COMMAND cp -v ${CMAKE_CURRENT_BINARY_DIR}/lurch${CMAKE_SHARED_LIBRARY_SUFFIX} ~/.purple/plugins/
+    COMMAND cp -v ${CMAKE_CURRENT_BINARY_DIR}/${_LURCH_OUTPUT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} ~/.purple/plugins/
     DEPENDS lurch
 )
 
@@ -181,7 +191,7 @@ if(LURCH_WITH_TESTS)
                 target_link_libraries(${_target} PRIVATE ${GMODULE_STATIC_LIBRARIES})
             endif()
 
-            add_test(NAME ${_target} COMMAND ${_target} ${CMAKE_CURRENT_BINARY_DIR}/lurch${CMAKE_SHARED_LIBRARY_SUFFIX})
+            add_test(NAME ${_target} COMMAND ${_target} ${CMAKE_CURRENT_BINARY_DIR}/${_LURCH_OUTPUT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
         else()
             add_test(NAME ${_target} COMMAND ${_target})
         endif()
