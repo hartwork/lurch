@@ -125,24 +125,34 @@ else()
     set(_LURCH_LIBRARY_TYPE SHARED)
 endif()
 
-foreach(_target lurch lurch_home)
+# NOTE: On Linux, bny defeault CMake build binaries with one set of RPATH
+#       and then sets a ddiferent value at install time.
+#       For "make install-home" we need a binary that already has the right
+#       RPATH set at build time because there is no install phase where CMake
+#       would change RPATH for us.  If we'd use the install-time RPATH
+#       right away, then the tests wouldn't run, at least not with bundled
+#       axc or libomemo.
+#       So we separate those two things into two binaries on Linux.
+#       On Windows, RPATH is not a topic and so we don't need to even build
+#       that extra binary on Windows.
+if(NOT WIN32)
+    set(_LURCH_HOME_TARGET lurch_home)  # else it's unset/empty
+ENDIF()
+
+foreach(_target lurch ${_LURCH_HOME_TARGET})
     add_library(${_target} ${_LURCH_LIBRARY_TYPE} ${_LURCH_SOURCES})
     set_target_properties(${_target} PROPERTIES PREFIX "")  # for lurch.so not liblurch.so
 endforeach()
 
 if(WIN32)
     if(BUILD_SHARED_LIBS)
-        set(_LURCH_OUTPUT_NAME      lurch_fully_shared)
-        set(_LURCH_HOME_OUTPUT_NAME lurch_home_fully_shared)
+        set(_LURCH_OUTPUT_NAME lurch_fully_shared)
     else()
-        set(_LURCH_OUTPUT_NAME      lurch_semi_shared)
-        set(_LURCH_HOME_OUTPUT_NAME lurch_home_semi_shared)
+        set(_LURCH_OUTPUT_NAME lurch_semi_shared)
     endif()
-    set_target_properties(lurch      PROPERTIES OUTPUT_NAME ${_LURCH_OUTPUT_NAME})
-    set_target_properties(lurch_home PROPERTIES OUTPUT_NAME ${_LURCH_HOME_OUTPUT_NAME})
+    set_target_properties(lurch PROPERTIES OUTPUT_NAME ${_LURCH_OUTPUT_NAME})
 else()
-    set(_LURCH_OUTPUT_NAME      lurch)
-    set(_LURCH_HOME_OUTPUT_NAME lurch_home)
+    set(_LURCH_OUTPUT_NAME lurch)
 endif()
 
 if(LURCH_INSTALL)
@@ -153,14 +163,22 @@ if(LURCH_INSTALL)
     )
 endif()
 
+if(WIN32)
+    set(_LURCH_INSTALL_HOME_DEPENDS lurch)
+    set(_LURCH_INSTALL_HOME_OUTPUT_NAME ${_LURCH_OUTPUT_NAME})
+else()
+    set(_LURCH_INSTALL_HOME_DEPENDS ${_LURCH_HOME_TARGET})
+    set(_LURCH_INSTALL_HOME_OUTPUT_NAME ${_LURCH_HOME_TARGET})
+endif()
+
 add_custom_target(install-home
     COMMAND mkdir -p ~/.purple/plugins
     COMMAND cp -v
-            ${CMAKE_CURRENT_BINARY_DIR}/${_LURCH_HOME_OUTPUT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+            ${CMAKE_CURRENT_BINARY_DIR}/${_LURCH_INSTALL_HOME_OUTPUT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
             ${_LURCH_AXC_BINARY_GLOB}
             ${_LURCH_OMEMO_BINARY_GLOB}
             ~/.purple/plugins/
-    DEPENDS lurch_home
+    DEPENDS ${_LURCH_INSTALL_HOME_DEPENDS}
 )
 
 # NOTE: This is a 1:1 port of a potentially outdated check
@@ -182,16 +200,18 @@ else()
 endif()
 message(STATUS "Detected ${_LURCH_OS}; will link with -l${_LURCH_LIBJABBER} -L${PURPLE_PLUGINDIR} for Jabber plug-in")
 
-foreach(_target lurch lurch_internal lurch_home)
+foreach(_target lurch lurch_internal ${_LURCH_HOME_TARGET})
     target_link_directories(${_target} PUBLIC ${PURPLE_PLUGINDIR})
     target_link_libraries(${_target} PRIVATE -l${_LURCH_LIBJABBER})
 endforeach()
 
-set_target_properties(lurch PROPERTIES INSTALL_RPATH ${PURPLE_PLUGINDIR})
-set_target_properties(lurch_home PROPERTIES
-    INSTALL_RPATH "\$ORIGIN;${PURPLE_PLUGINDIR}"
-    BUILD_WITH_INSTALL_RPATH ON
-)
+if(NOT WIN32)
+    set_target_properties(lurch PROPERTIES INSTALL_RPATH ${PURPLE_PLUGINDIR})
+    set_target_properties(${_LURCH_HOME_TARGET} PROPERTIES
+        INSTALL_RPATH "\$ORIGIN;${PURPLE_PLUGINDIR}"
+        BUILD_WITH_INSTALL_RPATH ON
+    )
+endif()
 
 
 #
@@ -273,7 +293,7 @@ endif()
 #
 # External build dependencies
 #
-foreach(_target lurch lurch_internal lurch_home ${_LURCH_TEST_TARGETS})
+foreach(_target lurch lurch_internal ${_LURCH_HOME_TARGET} ${_LURCH_TEST_TARGETS})
     target_include_directories(${_target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/headers/jabber)
 
     if(LURCH_WITH_SYSTEM_AXC)
