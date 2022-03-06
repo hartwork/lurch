@@ -83,6 +83,9 @@ if(LURCH_WITH_SYSTEM_AXC)
     _lurch_complain_if_missing(AXC "libaxc" LURCH_WITH_SYSTEM_AXC)
 else()
     _lurch_add_bundled(libaxc ${CMAKE_CURRENT_SOURCE_DIR}/lib/axc)
+    if(BUILD_SHARED_LIBS)
+        set(_LURCH_AXC_BINARY_GLOB ${CMAKE_CURRENT_BINARY_DIR}/lib/axc/libaxc${CMAKE_SHARED_LIBRARY_SUFFIX}*)
+    endif()
 endif()
 
 if(LURCH_WITH_SYSTEM_OMEMO)
@@ -91,6 +94,9 @@ if(LURCH_WITH_SYSTEM_OMEMO)
     _lurch_complain_if_missing(OMEMO "libomemo" LURCH_WITH_SYSTEM_OMEMO)
 else()
     _lurch_add_bundled(libomemo ${CMAKE_CURRENT_SOURCE_DIR}/lib/libomemo)
+    if(BUILD_SHARED_LIBS)
+        set(_LURCH_OMEMO_BINARY_GLOB ${CMAKE_CURRENT_BINARY_DIR}/lib/libomemo/libomemo${CMAKE_SHARED_LIBRARY_SUFFIX}*)
+    endif()
 endif()
 
 if(LURCH_WITH_TESTS)
@@ -118,17 +124,25 @@ if(WIN32)
 else()
     set(_LURCH_LIBRARY_TYPE SHARED)
 endif()
-add_library(lurch ${_LURCH_LIBRARY_TYPE} ${_LURCH_SOURCES})
-set_target_properties(lurch PROPERTIES PREFIX "")  # for lurch.so not liblurch.so
+
+foreach(_target lurch lurch_home)
+    add_library(${_target} ${_LURCH_LIBRARY_TYPE} ${_LURCH_SOURCES})
+    set_target_properties(${_target} PROPERTIES PREFIX "")  # for lurch.so not liblurch.so
+endforeach()
+
 if(WIN32)
     if(BUILD_SHARED_LIBS)
-        set(_LURCH_OUTPUT_NAME lurch_fully_shared)
+        set(_LURCH_OUTPUT_NAME      lurch_fully_shared)
+        set(_LURCH_HOME_OUTPUT_NAME lurch_home_fully_shared)
     else()
-        set(_LURCH_OUTPUT_NAME lurch_semi_shared)
+        set(_LURCH_OUTPUT_NAME      lurch_semi_shared)
+        set(_LURCH_HOME_OUTPUT_NAME lurch_home_semi_shared)
     endif()
-    set_target_properties(lurch PROPERTIES OUTPUT_NAME ${_LURCH_OUTPUT_NAME})
+    set_target_properties(lurch      PROPERTIES OUTPUT_NAME ${_LURCH_OUTPUT_NAME})
+    set_target_properties(lurch_home PROPERTIES OUTPUT_NAME ${_LURCH_HOME_OUTPUT_NAME})
 else()
-    set(_LURCH_OUTPUT_NAME lurch)
+    set(_LURCH_OUTPUT_NAME      lurch)
+    set(_LURCH_HOME_OUTPUT_NAME lurch_home)
 endif()
 
 if(LURCH_INSTALL)
@@ -141,8 +155,12 @@ endif()
 
 add_custom_target(install-home
     COMMAND mkdir -p ~/.purple/plugins
-    COMMAND cp -v ${CMAKE_CURRENT_BINARY_DIR}/${_LURCH_OUTPUT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} ~/.purple/plugins/
-    DEPENDS lurch
+    COMMAND cp -v
+            ${CMAKE_CURRENT_BINARY_DIR}/${_LURCH_HOME_OUTPUT_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
+            ${_LURCH_AXC_BINARY_GLOB}
+            ${_LURCH_OMEMO_BINARY_GLOB}
+            ~/.purple/plugins/
+    DEPENDS lurch_home
 )
 
 # NOTE: This is a 1:1 port of a potentially outdated check
@@ -164,10 +182,16 @@ else()
 endif()
 message(STATUS "Detected ${_LURCH_OS}; will link with -l${_LURCH_LIBJABBER} -L${PURPLE_PLUGINDIR} for Jabber plug-in")
 
-foreach(_target lurch lurch_internal)
+foreach(_target lurch lurch_internal lurch_home)
     target_link_directories(${_target} PUBLIC ${PURPLE_PLUGINDIR})
     target_link_libraries(${_target} PRIVATE -l${_LURCH_LIBJABBER})
 endforeach()
+
+set_target_properties(lurch PROPERTIES INSTALL_RPATH ${PURPLE_PLUGINDIR})
+set_target_properties(lurch_home PROPERTIES
+    INSTALL_RPATH "\$ORIGIN;${PURPLE_PLUGINDIR}"
+    BUILD_WITH_INSTALL_RPATH ON
+)
 
 
 #
@@ -249,7 +273,7 @@ endif()
 #
 # External build dependencies
 #
-foreach(_target lurch lurch_internal ${_LURCH_TEST_TARGETS})
+foreach(_target lurch lurch_internal lurch_home ${_LURCH_TEST_TARGETS})
     target_include_directories(${_target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/headers/jabber)
 
     if(LURCH_WITH_SYSTEM_AXC)
