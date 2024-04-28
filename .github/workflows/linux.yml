@@ -20,7 +20,7 @@ jobs:
         syslibs: ['ON', 'OFF']
     steps:
 
-    - uses: actions/checkout@v2.4.0
+    - uses: actions/checkout@v4.1.4
       with:
         submodules: recursive
 
@@ -100,7 +100,7 @@ jobs:
         find ~/.purple/plugins/ -not -type d | sort | xargs ls -l
 
     - name: Store coverage HTML report
-      uses: actions/upload-artifact@v2.3.1
+      uses: actions/upload-artifact@v4.3.3
       with:
         name: lurch_coverage_shared_${{ matrix.BUILD_SHARED_LIBS }}_syslibs_${{ matrix.syslibs }}_${{ github.sha }}
         path: build/coverage*.html
