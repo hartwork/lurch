@@ -29,18 +29,17 @@ jobs:
     - name: Install build dependencies
       uses: msys2/setup-msys2@v2
       with:
-        msystem: MINGW32
         install: |
           cmake
-          mingw-w64-i686-cmocka
-          mingw-w64-i686-glib2
-          mingw-w64-i686-libgcrypt
-          mingw-w64-i686-libsignal-protocol-c
-          mingw-w64-i686-libxml2
-          mingw-w64-i686-mxml
-          mingw-w64-i686-pidgin
-          mingw-w64-i686-sqlite3
-          mingw-w64-i686-toolchain
+          mingw-w64-x86_64-cmocka
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-libgcrypt
+          mingw-w64-x86_64-libsignal-protocol-c
+          mingw-w64-x86_64-libxml2
+          mingw-w64-x86_64-mxml
+          mingw-w64-x86_64-pidgin
+          mingw-w64-x86_64-sqlite3
+          mingw-w64-x86_64-toolchain
           ninja
 
     - name: Configure
@@ -49,7 +48,7 @@ jobs:
         cmake \
           -B build \
           -G Ninja \
-          -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc -DCMAKE_SYSTEM_NAME=Windows -DWIN32=ON -DMINGW=ON \
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_SYSTEM_NAME=Windows -DWIN32=ON -DMINGW=ON \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DBUILD_SHARED_LIBS=${{ matrix.BUILD_SHARED_LIBS }} \
           -DLURCH_WITH_SYSTEM_AXC=OFF \
@@ -64,7 +63,7 @@ jobs:
     - name: Gather transitive DLL closure
       run: |-
         set -x -o pipefail
-        DLL_HOME=/mingw32/bin/ BUILD_DIR=build/ ./copy_dll_closure.sh build/lurch*.dll build/
+        DLL_HOME=/mingw64/bin/ BUILD_DIR=build/ ./copy_dll_closure.sh build/lurch*.dll build/
         ls -lh build/*.dll
 
     - name: Test (KNOWN TO FAIL)
